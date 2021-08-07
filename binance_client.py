@@ -32,7 +32,7 @@ class BinanceClient:
 
     async def get_total_notional_bids_asks(self, symbol, limit):
         order_book = await self.client.get_order_book(symbol=symbol, limit=limit)
-        return await asyncio.gather(self.__sum_n_val(order_book["bids"]),self.__sum_n_val(order_book["asks"]))
+        return await asyncio.gather(self.__sum_notional_val(order_book["bids"]),self.__sum_notional_val(order_book["asks"]))
 
     async def get_bid_ask_spread(self,symbol):
         ticker = await self.client.get_ticker(symbol=symbol)
@@ -41,7 +41,7 @@ class BinanceClient:
     async def close_connection(self):
         await self.client.close_connection()
 
-    async def __sum_n_val(self, arr: list):
+    async def __sum_notional_val(self, arr: list):
         total = 0
         for e in arr:
             total += float(e[0]) * float(e[1])
