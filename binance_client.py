@@ -16,20 +16,15 @@ class BinanceClient:
         info = await self.client.get_exchange_info()
         return [s["symbol"] for s in info["symbols"] if s["quoteAsset"] == quote_asset]
 
-    async def get_24h_summary(self, symbols: List[str], parameter: str) -> Dict:
-        # convert the list to set because finding a value in a set is O(1)
-        symbols = set(symbols)
-
+    async def get_24h_summary(self, quote_asset: List[str], parameter: str) -> Dict:
         tickers = await self.client.get_ticker()
-        return {t["symbol"]: ast.literal_eval(str(t[parameter])) for t in tickers if t["symbol"] in symbols}
+        return {t["symbol"]: ast.literal_eval(str(t[parameter])) for t in tickers if t["symbol"].endswith(quote_asset)}
 
     async def get_top_symbols(self, quote_asset: str, parameter: str, top: int, to_string: bool = False) -> Union[list, str]:
         """Gets the top x symbols based on a given parameter, can return either a list of symbols or a printable string"""
-        # get a list of symbols that match given quote asset
-        symbols = await self.get_symbols_by_quote_asset(quote_asset)
 
         # get a dictionary of symbol -> parameter
-        volumes = await self.get_24h_summary(symbols, parameter)
+        volumes = await self.get_24h_summary(quote_asset, parameter)
 
         # get x symbols with highest value
         leaders = sorted(volumes, key=volumes.get, reverse=True)[:top]
