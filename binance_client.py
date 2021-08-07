@@ -15,7 +15,7 @@ class BinanceClient:
     async def get_24h_summary(self, quote_asset: str, parameter: str) -> Dict:
         tickers = await self.client.get_ticker()
         return {t["symbol"]: ast.literal_eval(str(t[parameter])) for t in tickers if t["symbol"].endswith(quote_asset)}
-
+    
     async def get_top_symbols(self, quote_asset: str, parameter: str, top: int, to_string: bool = False) -> Union[list, str]:
         """Gets the top x symbols based on a given parameter, can return either a list of symbols or a printable string"""
 

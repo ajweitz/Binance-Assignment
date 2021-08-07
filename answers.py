@@ -45,6 +45,24 @@ def q3(quote_asset: str = "BTC", results: int = 5, limit: int = 200):
 
     loop.run_until_complete(_q3())
 
+# Answer to Question 4
+@app.command()
+def q4(quote_asset: str = "USDT", results: int = 5):
+    """prints the price spread for each of the top symbols by highest number of trades"""
+    async def _q4():
+        client = await BinanceClient.create()
+
+        symbols = await client.get_top_symbols(quote_asset, "count", results)
+        summary = await asyncio.gather(*[client.get_bid_ask_spread(s) for s in symbols])
+        print(f"NUM SYMBOL{' '*5}SPREAD")
+
+        for i, s in enumerate(summary):
+            print(f"{i+1:<3} {symbols[i]:<10} {s}")
+
+        await client.close_connection()
+
+    loop.run_until_complete(_q4())
+
 
 if __name__ == "__main__":
     app()
