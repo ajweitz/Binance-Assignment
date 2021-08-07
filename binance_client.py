@@ -12,10 +12,6 @@ class BinanceClient:
         self.client = await AsyncClient.create()
         return self
 
-    async def get_symbols_by_quote_asset(self, quote_asset: str) -> List[str]:
-        info = await self.client.get_exchange_info()
-        return [s["symbol"] for s in info["symbols"] if s["quoteAsset"] == quote_asset]
-
     async def get_24h_summary(self, quote_asset: List[str], parameter: str) -> Dict:
         tickers = await self.client.get_ticker()
         return {t["symbol"]: ast.literal_eval(str(t[parameter])) for t in tickers if t["symbol"].endswith(quote_asset)}
