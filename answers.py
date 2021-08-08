@@ -6,9 +6,13 @@ import time
 import asyncio
 import typer
 import json as jsonParser # to avoid conflict with json parameter of q5 command
+from flask import Response, Flask
+import prometheus_client
 
-app = typer.Typer()
+cli = typer.Typer()
+server = Flask(__name__)
 loop = asyncio.get_event_loop()
+client = loop.run_until_complete(BinanceClient.create())
 
 Q1_DEFAULT_QUOTE_ASSET = "BTC"
 Q1_COMPARE_PARAMETER = "volume"
@@ -17,7 +21,9 @@ Q2_COMPARE_PARAMETER = "count"
 DEFAULT_TOTAL_RESULTS = 5
 DEFAULT_LIMIT = 200
 DEFAULT_REFRESH_RATE = 10
+PROMETHEUS_PORT = 8080
 
+# for question 1 and 2
 async def _print_top_symbols(quote_asset, param, size):
     client = await BinanceClient.create()
 
@@ -27,19 +33,19 @@ async def _print_top_symbols(quote_asset, param, size):
     await client.close_connection()
 
 # Answer to Question 1
-@app.command()
+@cli.command()
 def q1(quote_asset: str = Q1_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS):
     """prints the top symbols by highest volume"""
     loop.run_until_complete(_print_top_symbols(quote_asset, Q1_COMPARE_PARAMETER, results))
 
 # Answer to Question 2
-@app.command()
+@cli.command()
 def q2(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS):
     """prints the top symbols by highest number of trades"""
     loop.run_until_complete(_print_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results))
 
 # Answer to Question 3
-@app.command()
+@cli.command()
 def q3(quote_asset: str = Q1_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS, limit: int = DEFAULT_LIMIT):
     """prints the total notional value of top symbols by volume"""
     async def _q3():
@@ -57,7 +63,7 @@ def q3(quote_asset: str = Q1_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
     loop.run_until_complete(_q3())
 
 # Answer to Question 4
-@app.command()
+@cli.command()
 def q4(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS):
     """prints the price spread for each of the top symbols by highest number of trades"""
     async def _q4():
@@ -75,7 +81,7 @@ def q4(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
     loop.run_until_complete(_q4())
 
 # Answer to Question 5
-@app.command()
+@cli.command()
 def q5(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS, refresh_rate: int = DEFAULT_REFRESH_RATE, json: bool = False):
     """prints the absolute delta of the price spread for each of the top symbols by highest number of trades"""
     async def _q5():
@@ -108,6 +114,25 @@ def q5(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
 
     loop.run_until_complete(_q5())
 
+# Answer to Question 6
+gauges = []
+@cli.command()
+def q6(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS, refresh_rate: int = DEFAULT_REFRESH_RATE, json: bool = False):
+    """prints the absolute delta of the price spread for each of the top symbols by highest number of trades"""
+    symbols = loop.run_until_complete(client.get_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results))
+    for s in symbols:
+        gauges.append(prometheus_client.Gauge(f"price_spread_delta_{s}", f"Gauge of the absolute delta of the price spread for {s}"))
+    loop.run_until_complete(client.set_spread_tracking(symbols))
+    server.run(port=PROMETHEUS_PORT)
+
+@server.route("/metrics")
+def q6_metrics():
+    deltas = loop.run_until_complete(client.get_spread_abs_delta())
+    res = []
+    for i, d in enumerate(deltas):
+        gauges[i].set(d)
+        res.append(prometheus_client.generate_latest(gauges[i]))
+    return Response(res, mimetype="text/plain")    
 
 if __name__ == "__main__":
-    app()
+    cli()
