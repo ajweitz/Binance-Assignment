@@ -25,11 +25,8 @@ PROMETHEUS_PORT = 8080
 
 # for question 1 and 2
 async def _print_top_symbols(quote_asset, param, size):
-    client = await BinanceClient.create()
-
     result = await client.get_top_symbols(quote_asset, param, size, to_string=True)
     print(result)
-
     await client.close_connection()
 
 # Answer to Question 1
@@ -49,8 +46,6 @@ def q2(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
 def q3(quote_asset: str = Q1_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS, limit: int = DEFAULT_LIMIT):
     """prints the total notional value of top symbols by volume"""
     async def _q3():
-        client = await BinanceClient.create()
-
         symbols = await client.get_top_symbols(quote_asset, Q1_COMPARE_PARAMETER, results)
         summary = await asyncio.gather(*[client.get_total_notional_bids_asks(s, limit) for s in symbols])
         print(f"NUM SYMBOL{' '*5}BIDS{' '*17}ASKS")
@@ -67,8 +62,6 @@ def q3(quote_asset: str = Q1_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
 def q4(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS):
     """prints the price spread for each of the top symbols by highest number of trades"""
     async def _q4():
-        client = await BinanceClient.create()
-
         symbols = await client.get_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results)
         summary = await client.get_bid_ask_spread(symbols)
         print(f"NUM SYMBOL{' '*5}SPREAD")
@@ -99,8 +92,6 @@ def q5(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
                 j["spreadDeltas"].append([symbols[i],d])
             print(jsonParser.dumps(j))
 
-        client = await BinanceClient.create()
-
         symbols = await client.get_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results)
         await client.set_spread_tracking(symbols)
 
@@ -117,7 +108,7 @@ def q5(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
 # Answer to Question 6
 gauges = []
 @cli.command()
-def q6(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS, refresh_rate: int = DEFAULT_REFRESH_RATE, json: bool = False):
+def q6(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS):
     """prints the absolute delta of the price spread for each of the top symbols by highest number of trades"""
     symbols = loop.run_until_complete(client.get_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results))
     for s in symbols:
