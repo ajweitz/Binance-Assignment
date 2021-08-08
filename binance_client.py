@@ -1,7 +1,7 @@
 
 import ast
 from binance import AsyncClient
-from typing import Dict, List, Union
+from typing import Union
 import asyncio
 
 
@@ -13,7 +13,7 @@ class BinanceClient:
         self.client = await AsyncClient.create()
         return self
 
-    async def get_24h_summary(self, quote_asset: str, parameter: str) -> Dict:
+    async def get_24h_summary(self, quote_asset: str, parameter: str) -> dict:
         tickers = await self.client.get_ticker()
         return {t["symbol"]: ast.literal_eval(str(t[parameter])) for t in tickers if t["symbol"].endswith(quote_asset)}
 
@@ -31,17 +31,17 @@ class BinanceClient:
 
         return leaders
 
-    async def get_total_notional_bids_asks(self, symbol, limit):
+    async def get_total_notional_bids_asks(self, symbol: str, limit: int) -> list:
         order_book = await self.client.get_order_book(symbol=symbol, limit=limit)
         return await asyncio.gather(self.__sum_notional_val(order_book["bids"]), self.__sum_notional_val(order_book["asks"]))
 
-    async def get_bid_ask_spread(self, symbols):
+    async def get_bid_ask_spread(self, symbols: list) -> list:
         async def __get_bid_ask_spread(symbol):
             ticker = await self.client.get_ticker(symbol=symbol)
             return float(ticker["askPrice"]) - float(ticker["bidPrice"])
         return await asyncio.gather(*[__get_bid_ask_spread(s) for s in symbols])
 
-    async def set_spread_tracking(self, symbols: List):
+    async def set_spread_tracking(self, symbols: list):
         self.tracked_symbols = symbols
         self.last_spread = await self.get_bid_ask_spread(symbols)
 
