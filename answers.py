@@ -12,7 +12,6 @@ import prometheus_client
 cli = typer.Typer()
 server = Flask(__name__)
 loop = asyncio.get_event_loop()
-client = loop.run_until_complete(BinanceClient.create())
 
 Q1_DEFAULT_QUOTE_ASSET = "BTC"
 Q1_COMPARE_PARAMETER = "volume"
@@ -23,8 +22,9 @@ DEFAULT_LIMIT = 200
 DEFAULT_REFRESH_RATE = 10
 PROMETHEUS_PORT = 8080
 
-# for question 1 and 2
+# for use of question 1 and 2
 async def _print_top_symbols(quote_asset, param, size):
+    client = await BinanceClient.create()
     result = await client.get_top_symbols(quote_asset, param, size, to_string=True)
     print(result)
     await client.close_connection()
@@ -46,6 +46,7 @@ def q2(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
 def q3(quote_asset: str = Q1_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS, limit: int = DEFAULT_LIMIT):
     """prints the total notional value of top symbols by volume"""
     async def _q3():
+        client = await BinanceClient.create()
         symbols = await client.get_top_symbols(quote_asset, Q1_COMPARE_PARAMETER, results)
         summary = await asyncio.gather(*[client.get_total_notional_bids_asks(s, limit) for s in symbols])
         print(f"NUM SYMBOL{' '*5}BIDS{' '*17}ASKS")
@@ -62,6 +63,7 @@ def q3(quote_asset: str = Q1_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
 def q4(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS):
     """prints the price spread for each of the top symbols by highest number of trades"""
     async def _q4():
+        client = await BinanceClient.create()
         symbols = await client.get_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results)
         summary = await client.get_bid_ask_spread(symbols)
         print(f"NUM SYMBOL{' '*5}SPREAD")
@@ -91,7 +93,7 @@ def q5(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
             for i, d in enumerate(deltas):
                 j["spreadDeltas"].append([symbols[i],d])
             print(jsonParser.dumps(j))
-
+        client = await BinanceClient.create()
         symbols = await client.get_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results)
         await client.set_spread_tracking(symbols)
 
@@ -106,10 +108,18 @@ def q5(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
     loop.run_until_complete(_q5())
 
 # Answer to Question 6
+class ClientWrapper():
+    """Purpose: safely share the Binance client object between q6 & q6_metrics methods"""
+    def set_client(self):
+        self.client = loop.run_until_complete(BinanceClient.create())
+    
+wrapper = ClientWrapper() # this way, the BinanceClient object will be only created when q6 command is called
 gauges = []
 @cli.command()
 def q6(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS):
-    """prints the absolute delta of the price spread for each of the top symbols by highest number of trades"""
+    f"""Starts a listener on http://localhost:{PROMETHEUS_PORT}/metrics"""
+    wrapper.set_client()
+    client = wrapper.client
     symbols = loop.run_until_complete(client.get_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results))
     for s in symbols:
         gauges.append(prometheus_client.Gauge(f"price_spread_delta_{s}", f"Gauge of the absolute delta of the price spread for {s}"))
@@ -118,6 +128,7 @@ def q6(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_R
 
 @server.route("/metrics")
 def q6_metrics():
+    client = wrapper.client
     deltas = loop.run_until_complete(client.get_spread_abs_delta())
     res = []
     for i, d in enumerate(deltas):
@@ -127,3 +138,4 @@ def q6_metrics():
 
 if __name__ == "__main__":
     cli()
+
