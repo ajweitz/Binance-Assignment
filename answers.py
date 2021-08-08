@@ -10,6 +10,13 @@ import json as jsonParser # to avoid conflict with json parameter of q5 command
 app = typer.Typer()
 loop = asyncio.get_event_loop()
 
+Q1_DEFAULT_QUOTE_ASSET = "BTC"
+Q1_COMPARE_PARAMETER = "volume"
+Q2_DEFAULT_QUOTE_ASSET = "USDT"
+Q2_COMPARE_PARAMETER = "count"
+DEFAULT_TOTAL_RESULTS = 5
+DEFAULT_LIMIT = 200
+DEFAULT_REFRESH_RATE = 10
 
 async def _print_top_symbols(quote_asset, param, size):
     client = await BinanceClient.create()
@@ -21,24 +28,24 @@ async def _print_top_symbols(quote_asset, param, size):
 
 # Answer to Question 1
 @app.command()
-def q1(quote_asset: str = "BTC", results: int = 5):
+def q1(quote_asset: str = Q1_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS):
     """prints the top symbols by highest volume"""
-    loop.run_until_complete(_print_top_symbols(quote_asset, "volume", results))
+    loop.run_until_complete(_print_top_symbols(quote_asset, Q1_COMPARE_PARAMETER, results))
 
 # Answer to Question 2
 @app.command()
-def q2(quote_asset: str = "USDT", results: int = 5):
+def q2(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS):
     """prints the top symbols by highest number of trades"""
-    loop.run_until_complete(_print_top_symbols(quote_asset, "count", results))
+    loop.run_until_complete(_print_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results))
 
 # Answer to Question 3
 @app.command()
-def q3(quote_asset: str = "BTC", results: int = 5, limit: int = 200):
+def q3(quote_asset: str = Q1_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS, limit: int = DEFAULT_LIMIT):
     """prints the total notional value of top symbols by volume"""
     async def _q3():
         client = await BinanceClient.create()
 
-        symbols = await client.get_top_symbols(quote_asset, "volume", results)
+        symbols = await client.get_top_symbols(quote_asset, Q1_COMPARE_PARAMETER, results)
         summary = await asyncio.gather(*[client.get_total_notional_bids_asks(s, limit) for s in symbols])
         print(f"NUM SYMBOL{' '*5}BIDS{' '*17}ASKS")
 
@@ -51,12 +58,12 @@ def q3(quote_asset: str = "BTC", results: int = 5, limit: int = 200):
 
 # Answer to Question 4
 @app.command()
-def q4(quote_asset: str = "USDT", results: int = 5):
+def q4(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS):
     """prints the price spread for each of the top symbols by highest number of trades"""
     async def _q4():
         client = await BinanceClient.create()
 
-        symbols = await client.get_top_symbols(quote_asset, "count", results)
+        symbols = await client.get_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results)
         summary = await client.get_bid_ask_spread(symbols)
         print(f"NUM SYMBOL{' '*5}SPREAD")
 
@@ -69,7 +76,7 @@ def q4(quote_asset: str = "USDT", results: int = 5):
 
 # Answer to Question 5
 @app.command()
-def q5(quote_asset: str = "USDT", results: int = 5, refresh_rate: int = 10, json: bool = False):
+def q5(quote_asset: str = Q2_DEFAULT_QUOTE_ASSET, results: int = DEFAULT_TOTAL_RESULTS, refresh_rate: int = DEFAULT_REFRESH_RATE, json: bool = False):
     """prints the absolute delta of the price spread for each of the top symbols by highest number of trades"""
     async def _q5():
         async def _print_human_readable(symbols, deltas):
@@ -88,7 +95,7 @@ def q5(quote_asset: str = "USDT", results: int = 5, refresh_rate: int = 10, json
 
         client = await BinanceClient.create()
 
-        symbols = await client.get_top_symbols(quote_asset, "count", results)
+        symbols = await client.get_top_symbols(quote_asset, Q2_COMPARE_PARAMETER, results)
         await client.set_spread_tracking(symbols)
 
         while True:
