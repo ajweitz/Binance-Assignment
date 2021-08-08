@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 
 from binance_client import BinanceClient
+from datetime import datetime
+import time
 import asyncio
 import typer
+import json as jsonParser # to avoid conflict with json parameter of q5 command
+
 app = typer.Typer()
 loop = asyncio.get_event_loop()
 
@@ -53,7 +57,7 @@ def q4(quote_asset: str = "USDT", results: int = 5):
         client = await BinanceClient.create()
 
         symbols = await client.get_top_symbols(quote_asset, "count", results)
-        summary = await asyncio.gather(*[client.get_bid_ask_spread(s) for s in symbols])
+        summary = await client.get_bid_ask_spread(symbols)
         print(f"NUM SYMBOL{' '*5}SPREAD")
 
         for i, s in enumerate(summary):
@@ -62,6 +66,40 @@ def q4(quote_asset: str = "USDT", results: int = 5):
         await client.close_connection()
 
     loop.run_until_complete(_q4())
+
+# Answer to Question 5
+@app.command()
+def q5(quote_asset: str = "USDT", results: int = 5, refresh_rate: int = 10, json: bool = False):
+    """prints the absolute delta of the price spread for each of the top symbols by highest number of trades"""
+    async def _q5():
+        async def _print_human_readable(symbols, deltas):
+            print(datetime.now())
+            for i, d in enumerate(deltas):
+                print(f"{i+1:<3} {symbols[i]:<10} {d}")
+            print("")
+
+        async def _print_json_format(symbols, deltas):
+            j = {
+                "timestamp": int(time.time() * 1000 ),
+                "spreadDeltas": []}
+            for i, d in enumerate(deltas):
+                j["spreadDeltas"].append([symbols[i],d])
+            print(jsonParser.dumps(j))
+
+        client = await BinanceClient.create()
+
+        symbols = await client.get_top_symbols(quote_asset, "count", results)
+        await client.set_spread_tracking(symbols)
+
+        while True:
+            await asyncio.sleep(refresh_rate)
+            deltas = await client.get_spread_abs_delta()
+            if json:
+                await _print_json_format(symbols, deltas)
+            else:
+                await _print_human_readable(symbols, deltas)
+
+    loop.run_until_complete(_q5())
 
 
 if __name__ == "__main__":

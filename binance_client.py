@@ -4,6 +4,7 @@ from binance import AsyncClient
 from typing import Dict, List, Union
 import asyncio
 
+
 class BinanceClient:
 
     @classmethod
@@ -15,7 +16,7 @@ class BinanceClient:
     async def get_24h_summary(self, quote_asset: str, parameter: str) -> Dict:
         tickers = await self.client.get_ticker()
         return {t["symbol"]: ast.literal_eval(str(t[parameter])) for t in tickers if t["symbol"].endswith(quote_asset)}
-    
+
     async def get_top_symbols(self, quote_asset: str, parameter: str, top: int, to_string: bool = False) -> Union[list, str]:
         """Gets the top x symbols based on a given parameter, can return either a list of symbols or a printable string"""
 
@@ -32,15 +33,29 @@ class BinanceClient:
 
     async def get_total_notional_bids_asks(self, symbol, limit):
         order_book = await self.client.get_order_book(symbol=symbol, limit=limit)
-        return await asyncio.gather(self.__sum_notional_val(order_book["bids"]),self.__sum_notional_val(order_book["asks"]))
+        return await asyncio.gather(self.__sum_notional_val(order_book["bids"]), self.__sum_notional_val(order_book["asks"]))
 
-    async def get_bid_ask_spread(self,symbol):
-        ticker = await self.client.get_ticker(symbol=symbol)
-        return float(ticker["askPrice"]) - float(ticker["bidPrice"])
+    async def get_bid_ask_spread(self, symbols):
+        async def __get_bid_ask_spread(symbol):
+            ticker = await self.client.get_ticker(symbol=symbol)
+            return float(ticker["askPrice"]) - float(ticker["bidPrice"])
+        return await asyncio.gather(*[__get_bid_ask_spread(s) for s in symbols])
+
+    async def set_spread_tracking(self, symbols: List):
+        self.tracked_symbols = symbols
+        self.last_spread = await self.get_bid_ask_spread(symbols)
+
+    async def get_spread_abs_delta(self):
+        current_spread = await self.get_bid_ask_spread(self.tracked_symbols)
+        deltas = [abs(self.last_spread[i]-v)
+                  for i, v in enumerate(current_spread)]
+        self.last_spread = current_spread
+        return deltas
 
     async def close_connection(self):
         await self.client.close_connection()
 
+    # private methods
     async def __sum_notional_val(self, arr: list):
         total = 0
         for e in arr:
