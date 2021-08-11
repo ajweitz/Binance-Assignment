@@ -2,7 +2,7 @@
 For this assignemnt I chose `python` because of my familiarity with the language and the libraries it provides.  
 I chose to provide the answers inside a parameterized script.  
 ## Requirements
-Python 3.6
+Python 3.6+ (Tested on 3.6.14 and 3.8.1).
 
 ## Running the answers
 `pip install -r requirements.txt`
